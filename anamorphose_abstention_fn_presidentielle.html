@@ -1,0 +1,307 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="http://d3js.org/d3.v2.min.js"></script>
+    <script src="./colorbrewer.js"></script>
+    <script src="./topojson_old.js"></script>   
+    <script src="./cartogram.js"></script>
+    <style type="text/css">
+    
+    html {
+    font-family: sans-serif; /* 1 */
+    -webkit-text-size-adjust: 100%; /* 2 */
+    -ms-text-size-adjust: 100%; /* 2 */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+} 
+    
+       body {
+        font-family: Arial, sans-serif; 
+        font-size: 14px;
+        line-height: 1.4em;
+        padding: 0;
+        width: 600px;
+        height: 500px;
+      }
+      
+            #container {
+        width: 600px;
+      }
+      
+        #map {
+        display: block;
+        position: absolute;
+        background: #fff;
+        width: 600px;
+        height: 500px;
+        margin: 0;
+      }
+
+path {
+  stroke: #000;
+  stroke-width: 0.25px;
+}
+
+
+      path.state {
+        stroke: #666;
+        stroke-width: .5;
+      }
+
+      path.state:hover {
+        stroke: #000;
+      }
+
+
+    </style>
+
+  </head>
+
+  <body>
+
+    <form>
+        <p>
+          <label>Choisissez le facteur de déformation <select id="field"></select></label>
+          <label>pendant la présidentielle de <select id="year"></select></label>
+          <span id="status"></span>
+        </p>
+   </form>
+  
+      <div id="container">
+      <svg id="map"></svg>
+      </div>
+    
+    <script>
+
+      // hide the form if the browser doesn't do SVG,
+      // (then just let everything else fail)
+      if (!document.createElementNS) {
+        document.getElementsByTagName("form")[0].style.display = "none";
+      }
+
+
+      var percent = (function() {
+            var fmt = d3.format(".2f");
+            return function(n) { return fmt(n) + "%"; };
+          })(),
+            fields = [
+            {name: "Aucun", id: "none"},
+            {name: "Abstention", id: "abs", key: "ABS%d", format: percent},
+             {name: "Vote FN", id: "fn", key: "FN%d", format: percent},
+          ],
+          years = [2012, 2007,2002,1995], 
+           fieldsById = d3.nest()
+            .key(function(d) { return d.id; })
+            .rollup(function(d) { return d[0]; })
+            .map(fields),
+          field = fields[0],
+          year = years[0],
+          colorsFN = colorbrewer.Greys[8];
+          var colorFN = d3.scale.quantize().range(colorsFN).domain([0,25]);
+
+          colorsAbs = colorbrewer.Reds[8];
+          var colorAbs = d3.scale.quantize().range(colorsAbs).domain([0,45]);
+
+           var body = d3.select("body");
+          
+
+         var fieldSelect = d3.select("#field")
+        .on("change", function(e) {
+          field = fields[this.selectedIndex];
+          update();
+        });
+
+      fieldSelect.selectAll("option")
+        .data(fields)
+        .enter()
+        .append("option")
+          .attr("value", function(d) { return d.id; })
+          .text(function(d) { return d.name; });
+
+      var yearSelect = d3.select("#year")
+        .on("change", function(e) {
+          year = years[this.selectedIndex]; 
+          update();
+        });
+
+      yearSelect.selectAll("option")
+        .data(years)
+        .enter()
+        .append("option")
+          .attr("value", function(y) { return y; })
+          .text(function(y) { return y; })
+          
+       var map = d3.select("#map"),
+          zoom = d3.behavior.zoom()
+          .translate([-38, 32])
+           .scale(.94)
+           .scaleExtent([0.5, 10.0])
+           .on("zoom", updateZoom),
+          layer = map.append("g")
+            .attr("id", "layer"),
+          states = layer.append("g")
+            .attr("id", "states")
+            .selectAll("path");
+            
+      
+      updateZoom();
+
+      function updateZoom() {
+        var scale = zoom.scale();
+        layer.attr("transform",
+          "translate(" + zoom.translate() + ") " +
+          "scale(" + [scale, scale] + ")");
+      }
+    
+
+  
+      var projection = d3.geo.albers().origin([8.5, 45.7]).scale(2600).parallels([40, 52]),
+       topology,
+          geometries,
+          rawData,
+          dataById = {},
+          carto = d3.cartogram()
+            .projection(projection)
+            .properties(function(d) {
+              var c= dataById[d.id];
+             
+              return dataById[d.id];
+            })
+            .value(function(d) {
+              return +d.properties[field.key.replace("%d",year)];
+            });
+
+    
+    
+d3.json("dpts_fr_topo.json", function(topo) {
+        topology = topo;
+        geometries = topology.objects.layer1.geometries;
+      d3.csv("presidentielle_fn_abstention_final.csv", function(data) {
+          rawData = data;	
+          dataById = d3.nest()
+            .key(function(d) { return d.id; })
+	    .rollup(function(d) { return d[0]; })
+            .map(data);
+          init();
+             });
+});  
+
+
+
+   function init() {
+        var features = carto.features(topology, geometries),
+            path = d3.geo.path()
+              .projection(projection);
+   
+        states = states.data(features)
+          .enter()
+          .append("path")
+            .attr("class", "state")
+           /* .attr("id", function(d) {
+              return d.properties.id;
+            }) */ 
+            .attr("fill", "#fafafa")
+            .attr("d", path);
+
+       states.append("title");
+update();
+      }
+      
+    function update() {
+	if(field.key!=undefined){
+        body.classed("updating", true);
+     
+          var key = field.key.replace("%d",year);
+          var fmt = (typeof field.format === "function")
+              ? field.format
+              : d3.format(field.format || ","),
+            value = function(d) {
+            if(d.properties != undefined){
+			      return +d.properties[key];
+		        }else{ return NaN};
+            };
+
+
+            var values = states.data().map(value)
+              .filter(function(n) {
+                return !isNaN(n);
+              })
+              .sort(d3.ascending);
+
+            lo = values[0],
+            hi = values[values.length - 1];
+
+       
+
+        // normalize the scale to positive numbers
+        var scale = d3.scale.linear()
+          .domain([lo, hi])
+          .range([1, 1000]);
+	
+        // tell the cartogram to use the scaled values
+        carto.value(function(d) {
+          return scale(value(d));
+        });
+
+        // generate the new features, pre-projected
+        var features = carto(topology, geometries).features;
+        // update the data
+        states.data(features)
+          .select("title")
+            .text(function(d) {
+              if(d.properties != undefined){
+              return [d.properties.NAME, fmt(value(d))].join(": ");
+              }
+            });
+
+
+
+        states.transition()
+          .duration(750)
+          .ease("linear")
+          .attr("fill", function(d) {
+		if(field.id=="fn"){
+            	return colorFN(value(d))
+		}else{
+            	return colorAbs(value(d))
+		}
+          })
+          .attr("d", carto.path);
+
+        body.classed("updating", false);
+      
+	}else{
+	        var features = carto.features(topology, geometries);
+	        // update the data
+        	states.data(features)
+            path = d3.geo.path()
+              .projection(projection);
+        states.transition()
+          .duration(750)
+          .ease("linear")
+          .attr("fill","#fafafa")
+          .attr("d", path);
+
+	}
+}
+
+    </script>
+</div>
+</div>
+
+
+</body>
+</html>
+
+
