@@ -1,3 +1,9 @@
 Vous trouverez ci après les fichiers utilisés pour créer une carte anamorphosée des départements de France (métropole).
 
 Ces derniers sont déformés par deux valeurs récoltées pendant les élections présidentielles françaises : l'abstention et le vote FN, les deux en % d'inscrits.
+
+La carte sert d'illustration à une analyse sur l'abstention et le vote FN en France lors des présidentielles (http://blog.m0le.net/2013/10/02/comment-labstention-peut-aider-le-fn/).
+
+Elle est librement inspirée du travail d'Etienne Côme avec la "France du Bon Coin"(http://www.comeetie.fr/map_lbc.php).
+
+Pour les plus curieux, j'ai également écrit tout un tutoriel au sujet de l'anamorphose : http://blog.m0le.net/2013/10/20/autopsie-dune-dataviz-3-une-carte-en-anamorphose-avec-champs-de-selection/
